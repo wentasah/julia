@@ -2356,6 +2356,13 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     };
     jl_serialize_value(&s, worklist);
     jl_serialize_value(&s, lambdas);
+    // Cache external MethodInstances
+    len = jl_array_len(jl_external_method_instances);
+    write_uint64(s.s, len);
+    for (i = 0; i < len; i++)
+        jl_serialize_value(&s, jl_ptrarrayref(jl_external_method_instances, i));
+    jl_array_del_end(jl_external_method_instances, len);
+    jl_external_method_instances = NULL;
     jl_serialize_value(&s, edges);
     jl_serialize_value(&s, targets);
     jl_finalize_serializer(&s);
