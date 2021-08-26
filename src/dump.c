@@ -59,6 +59,7 @@ static arraylist_t reinit_list;
 // This is not quite globally rooted, but we take care to only
 // ever assigned rooted values here.
 static jl_array_t *serializer_worklist JL_GLOBALLY_ROOTED;
+int currently_serializing = 0;
 
 // inverse of backedges tree
 htable_t edges_map;
@@ -2302,6 +2303,7 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     }
     JL_GC_PUSH2(&mod_array, &udeps);
     mod_array = jl_get_loaded_modules();
+    currently_serializing = 1;
 
     serializer_worklist = worklist;
     write_header(&f);
@@ -2411,6 +2413,7 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
     write_int32(&f, 0); // mark the end of the source text
     ios_close(&f);
     JL_GC_POP();
+    currently_serializing = 0;
 
     return 0;
 }
