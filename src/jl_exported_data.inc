@@ -37,6 +37,7 @@
     XX(jl_emptytuple_type) \
     XX(jl_errorexception_type) \
     XX(jl_expr_type) \
+    XX(jl_external_method_instances) \
     XX(jl_false) \
     XX(jl_float16_type) \
     XX(jl_float32_type) \
@@ -84,6 +85,7 @@
     XX(jl_pinode_type) \
     XX(jl_pointer_type) \
     XX(jl_pointer_typename) \
+    XX(jl_precompile_toplevel_module) \
     XX(jl_quotenode_type) \
     XX(jl_readonlymemory_exception) \
     XX(jl_ref_type) \

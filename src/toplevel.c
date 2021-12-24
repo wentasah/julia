@@ -35,8 +35,8 @@ jl_mutex_t jl_modules_mutex;
 
 // When generating output, the following are used for keeping track of external MethodInstances
 htable_t external_method_instances_by_module;      // module => arraylist
-jl_module_t *precompile_toplevel_module;           // the current toplevel module
-arraylist_t *external_method_instances;            // the current toplevel module's list of external MethodInstances
+JL_DLLEXPORT jl_module_t *jl_precompile_toplevel_module;           // the current toplevel module
+JL_DLLEXPORT jl_array_t  *jl_external_method_instances = NULL;     // the current toplevel module's list of external MethodInstances
 
 JL_DLLEXPORT void jl_add_standard_imports(jl_module_t *m)
 {
@@ -138,12 +138,12 @@ static jl_value_t *jl_eval_module_expr(jl_module_t *parent_module, jl_expr_t *ex
 
     jl_module_t *newm = jl_new_module(name);
     jl_value_t *form = (jl_value_t*)newm;
-    JL_GC_PUSH1(&form);
+    JL_GC_PUSH2(&form, &jl_external_method_instances);
     JL_LOCK(&jl_modules_mutex);
     ptrhash_put(&jl_current_modules, (void*)newm, (void*)((uintptr_t)HT_NOTFOUND + 1));
     JL_UNLOCK(&jl_modules_mutex);
 
-    jl_module_t *old_toplevel_module = precompile_toplevel_module;
+    jl_module_t *old_toplevel_module = jl_precompile_toplevel_module;
 
     // copy parent environment info into submodule
     newm->uuid = parent_module->uuid;
@@ -151,11 +151,9 @@ static jl_value_t *jl_eval_module_expr(jl_module_t *parent_module, jl_expr_t *ex
         newm->parent = newm;
         jl_register_root_module(newm);
         if (jl_generating_output()) {
-            precompile_toplevel_module = newm;
-            arraylist_t ext_mis;
-            arraylist_new(&ext_mis, 0);
-            external_method_instances = &ext_mis;
-            ptrhash_put(&external_method_instances_by_module, newm, external_method_instances);
+            jl_precompile_toplevel_module = newm;
+            jl_external_method_instances = jl_alloc_vec_any(0);
+            ptrhash_put(&external_method_instances_by_module, newm, jl_external_method_instances);
         }
     }
     else {
@@ -275,10 +273,10 @@ static jl_value_t *jl_eval_module_expr(jl_module_t *parent_module, jl_expr_t *ex
         }
     }
 
-    if (precompile_toplevel_module != old_toplevel_module) {
-        precompile_toplevel_module = old_toplevel_module;
+    if (jl_precompile_toplevel_module != old_toplevel_module) {
+        jl_precompile_toplevel_module = old_toplevel_module;
         // We can't free the old list of MethodInstances here because it is for consumption by the serializer
-        external_method_instances = (arraylist_t*) ptrhash_get(&external_method_instances_by_module, precompile_toplevel_module);
+        jl_external_method_instances = (jl_array_t*) ptrhash_get(&external_method_instances_by_module, jl_precompile_toplevel_module);
     }
 
     JL_GC_POP();

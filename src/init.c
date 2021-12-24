@@ -626,8 +626,8 @@ JL_DLLEXPORT void julia_init(JL_IMAGE_SEARCH rel)
     htable_new(&jl_current_modules, 0);
     if (jl_generating_output()) {
         htable_new(&external_method_instances_by_module, 0);
-        precompile_toplevel_module = NULL;
-        external_method_instances = NULL;
+        jl_precompile_toplevel_module = NULL;
+        jl_external_method_instances = NULL;
         ptrhash_put(&external_method_instances_by_module, NULL, NULL);
     }
     JL_MUTEX_INIT(&jl_modules_mutex);

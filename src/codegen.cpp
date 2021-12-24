@@ -7420,7 +7420,7 @@ static std::pair<std::unique_ptr<Module>, jl_llvm_functions_t>
     if (ctx.roots) {
         jl_method_t *m = lam->def.method;
         bool added = false;
-        bool external = precompile_toplevel_module != NULL && parent_module(m->module) != precompile_toplevel_module;
+        bool external = jl_precompile_toplevel_module != NULL && jl_parent_module(m->module) != jl_precompile_toplevel_module;
         int rootslen;
         JL_LOCK(&m->writelock);
         if (m->roots == NULL) {
@@ -7451,8 +7451,8 @@ static std::pair<std::unique_ptr<Module>, jl_llvm_functions_t>
             if (m->newrootsindex == INT32_MAX) {
                 m->newrootsindex = rootslen;
             }
-            assert(external_method_instances != NULL);
-            arraylist_push(external_method_instances, lam);
+            assert(jl_external_method_instances != NULL);
+            jl_array_ptr_1d_push(jl_external_method_instances, (jl_value_t*)lam);
         }
         JL_UNLOCK(&m->writelock);
     }

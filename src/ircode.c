@@ -326,7 +326,7 @@ static void jl_encode_value_(jl_ircode_state *s, jl_value_t *v, int as_literal) 
             int newrootsindex = s->method->newrootsindex & INT32_MAX;
             if (id >= newrootsindex) {
                 if (s->method->newrootsindex >= 0) {
-                    jl_(precompile_toplevel_module);
+                    jl_(jl_precompile_toplevel_module);
                     jl_(s->method);
                     jl_(s->method->module);
                 }
