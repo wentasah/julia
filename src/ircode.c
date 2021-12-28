@@ -325,15 +325,14 @@ static void jl_encode_value_(jl_ircode_state *s, jl_value_t *v, int as_literal) 
             assert(id >= 0);
             int newrootsindex = s->method->newrootsindex & INT32_MAX;
             if (id >= newrootsindex) {
-                if (s->method->newrootsindex >= 0) {
-                    jl_(jl_precompile_toplevel_module);
-                    jl_(s->method);
-                    jl_(s->method->module);
-                }
-                if (currently_serializing)
+                if (currently_serializing) {
+                    // We only need to use relative root indexing when serializing. During Julia's bootstrap
+                    // compilation of its own libraries, we can use absolute indexing because the order of
+                    // library compilation is fixed.
                     assert(s->method->newrootsindex < 0);      // new roots already serialized
-                write_uint8(s->s, TAG_EXTERN_METHODROOT);
-                id -= newrootsindex;
+                    write_uint8(s->s, TAG_EXTERN_METHODROOT);
+                    id -= newrootsindex;
+                }
             }
             if (id < 256) {
                 write_uint8(s->s, TAG_METHODROOT);
@@ -600,8 +599,8 @@ static jl_value_t *jl_decode_value(jl_ircode_state *s) JL_GC_DISABLED
     case TAG_EXTERN_METHODROOT:
         assert(s->method->newrootsindex >= 0);
         if (s->method->newrootsindex == INT32_MAX) {
-            jl_(s->method);
             jl_(s->method->module);
+            jl_(s->method);
         }
         assert(s->method->newrootsindex < INT32_MAX);
         // if (s->method->newrootsindex == INT32_MAX)
