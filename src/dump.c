@@ -416,8 +416,6 @@ static int jl_serialize_generic(jl_serializer_state *s, jl_value_t *v) JL_GC_DIS
         void **bp = ptrhash_bp(&backref_table, v);
         if (*bp != HT_NOTFOUND) {
             uintptr_t pos = (char*)*bp - (char*)HT_NOTFOUND - 1;
-            // jl_printf(JL_STDOUT, "writing a backref to position %ld for ", pos>>1);
-            // jl_(v);
             if (pos < 65536) {
                 write_uint8(s->s, TAG_SHORT_BACKREF);
                 write_uint16(s->s, pos);
@@ -447,8 +445,6 @@ static int jl_serialize_generic(jl_serializer_state *s, jl_value_t *v) JL_GC_DIS
             arraylist_push(&reinit_list, (void*)pos);
             arraylist_push(&reinit_list, (void*)3);
         }
-        // jl_printf(JL_STDOUT, "ser generic: adding a backref at position %ld for ", pos);
-        // jl_(v);
         pos <<= 1;
         ptrhash_put(&backref_table, v, (char*)HT_NOTFOUND + pos + 1);
     }
@@ -705,25 +701,16 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
             jl_serialize_value(s, (jl_value_t*)mi->uninferred);
         jl_serialize_value(s, (jl_value_t*)mi->specTypes);
         jl_serialize_value(s, mi->def.value);
-        // if (!internal)
-        //     return;
         jl_serialize_value(s, (jl_value_t*)mi->sparam_vals);
         // Check whether we need to serialize additional roots of the method
-        if (internal == 0) {
+        if (!internal) {
             jl_method_t *m = mi->def.method;
-            // jl_printf(JL_STDOUT, "specializing ");
-            // jl_(m);
             int newrootsindex = m->newrootsindex;
             if (newrootsindex >= 0 && newrootsindex < INT32_MAX) {
-                // write_uint8(s->s, TAG_NEWROOTS);          // the method will be serialized next
                 size_t i, l = jl_array_len(m->roots);
-                // jl_printf(JL_STDOUT, "%ld new roots for ", l - newrootsindex);
-                // jl_(m);
                 write_int32(s->s, l - newrootsindex);
                 for (i = newrootsindex; i < l; i++) {
-                    // jl_((jl_value_t*)jl_array_ptr_ref(m->roots, i));
                     jl_serialize_value(s, (jl_value_t*)jl_array_ptr_ref(m->roots, i));
-                    // jl_serialize_value(s, jl_nothing);
                 }
                 m->newrootsindex ^= (~INT32_MAX);  // flip the sign bit to indicate that the new roots have been serialized
             } else {
@@ -1312,16 +1299,12 @@ static jl_value_t *jl_deserialize_datatype(jl_serializer_state *s, int pos, jl_v
         jl_svec_t *parameters = (jl_svec_t*)jl_deserialize_value(s, NULL);
         dtv = jl_apply_type(dtv, jl_svec_data(parameters), jl_svec_len(parameters));
         backref_list.items[pos] = dtv;
-        // jl_printf(JL_STDOUT, "deser: adding backref item at %d for ", pos);
-        // jl_(dtv);
         return dtv;
     }
     if (tag == 9) {
         jl_datatype_t *primarydt = (jl_datatype_t*)jl_deserialize_value(s, NULL);
         jl_value_t *dtv = jl_typeof(jl_get_kwsorter((jl_value_t*)primarydt));
         backref_list.items[pos] = dtv;
-        // jl_printf(JL_STDOUT, "deser: adding backref item at %d for ", pos);
-        // jl_(dtv);
         return dtv;
     }
     if (!(tag == 0 || tag == 5 || tag == 10 || tag == 11 || tag == 12)) {
@@ -1398,8 +1381,6 @@ static jl_value_t *jl_deserialize_datatype(jl_serializer_state *s, int pos, jl_v
     jl_gc_wb(dt, dt->super);
     dt->types = (jl_svec_t*)jl_deserialize_value(s, (jl_value_t**)&dt->types);
     if (dt->types) jl_gc_wb(dt, dt->types);
-    // jl_printf(JL_STDOUT, "deser: adding backref item at %d for ", pos);
-    // jl_(dt);
 
     return (jl_value_t*)dt;
 }
@@ -1414,14 +1395,11 @@ static jl_value_t *jl_deserialize_value_svec(jl_serializer_state *s, uint8_t tag
     jl_svec_t *sv = jl_alloc_svec(len);
     if (loc != NULL)
         *loc = (jl_value_t*)sv;
-    size_t pos = backref_list.len;
     arraylist_push(&backref_list, (jl_value_t*)sv);
     jl_value_t **data = jl_svec_data(sv);
     for (i = 0; i < len; i++) {
         data[i] = jl_deserialize_value(s, &data[i]);
     }
-    // jl_printf(JL_STDOUT, "deser svec: adding backref item at %ld for ", pos);
-    // jl_(sv);
     return (jl_value_t*)sv;
 }
 
@@ -1438,9 +1416,7 @@ static jl_value_t *jl_deserialize_value_symbol(jl_serializer_state *s, uint8_t t
     jl_value_t *sym = (jl_value_t*)jl_symbol(name);
     if (len >= 256)
         free(name);
-    // jl_printf(JL_STDOUT, "deser sym: adding backref item at %ld for ", backref_list.len);
     arraylist_push(&backref_list, sym);
-    // jl_(sym);
     return sym;
 }
 
@@ -1514,8 +1490,6 @@ static jl_value_t *jl_deserialize_value_array(jl_serializer_state *s, uint8_t ta
         size_t tot = jl_array_len(a) * a->elsize + extra;
         ios_readall(s->s, (char*)jl_array_data(a), tot);
     }
-    // jl_printf(JL_STDOUT, "deser valarray: adding backref item at %ld for ", pos);
-    // jl_(a);
     return (jl_value_t*)a;
 }
 
@@ -1548,8 +1522,6 @@ static jl_value_t *jl_deserialize_value_method(jl_serializer_state *s, jl_value_
         assert(loc != NULL && loc != HT_NOTFOUND);
         arraylist_push(&flagref_list, loc);
         arraylist_push(&flagref_list, (void*)pos);
-        // jl_printf(JL_STDOUT, "deser method: adding backref item at %ld for ", pos);
-        // jl_(m);
         return (jl_value_t*)m;
     }
     m->specializations = (jl_svec_t*)jl_deserialize_value(s, (jl_value_t**)&m->specializations);
@@ -1596,8 +1568,6 @@ static jl_value_t *jl_deserialize_value_method(jl_serializer_state *s, jl_value_
     if (m->recursion_relation)
         jl_gc_wb(m, m->recursion_relation);
     JL_MUTEX_INIT(&m->writelock);
-    // jl_printf(JL_STDOUT, "deser method: adding backref item at %ld for ", pos);
-    // jl_(m);
     return (jl_value_t*)m;
 }
 
@@ -1610,7 +1580,6 @@ static jl_value_t *jl_deserialize_value_method_instance(jl_serializer_state *s, 
     uintptr_t pos = backref_list.len;
     arraylist_push(&backref_list, mi);
     int internal = read_uint8(s->s);
-    jl_array_t *newroots = NULL;
     mi->specTypes = (jl_value_t*)jl_deserialize_value(s, (jl_value_t**)&mi->specTypes);
     jl_gc_wb(mi, mi->specTypes);
     mi->def.value = jl_deserialize_value(s, &mi->def.value);
@@ -1620,7 +1589,6 @@ static jl_value_t *jl_deserialize_value_method_instance(jl_serializer_state *s, 
         assert(loc != NULL && loc != HT_NOTFOUND);
         arraylist_push(&flagref_list, loc);
         arraylist_push(&flagref_list, (void*)pos);
-        // return (jl_value_t*)mi;
     }
 
     if (internal == 1) {
@@ -1632,24 +1600,12 @@ static jl_value_t *jl_deserialize_value_method_instance(jl_serializer_state *s, 
     if (!internal) {
         int i, l = read_int32(s->s);
         if (l != 0) {
-            // jl_printf(JL_STDOUT, "Got %d new roots\n", l);
-            newroots = jl_alloc_vec_any(l);
-            jl_value_t *newroot;
+            jl_array_t *newroots = jl_alloc_vec_any(l);
             for (i = 0; i < l; i++) {
-                newroot = jl_deserialize_value(s, NULL);
-                jl_arrayset(newroots, newroot, i);
-                // jl_printf(JL_STDOUT, "root %d: ", i+1);
-                // jl_(newroot);
-                // newroot = jl_deserialize_value(s, NULL);
-                // jl_printf(JL_STDOUT, "Should be nothing: ");
-                // jl_(newroot);
+                jl_arrayset(newroots, jl_deserialize_value(s, NULL), i);
             }
             jl_method_t *m = mi->def.method;
-            // jl_printf(JL_STDOUT, "reloading for method ");
-            // jl_(m);
             assert(jl_is_method(m));
-            // jl_printf(JL_STDOUT, "with spectypes ");
-            // jl_(mi->specTypes);
             if (m->roots) {
                 m->newrootsindex = jl_array_len(m->roots);
                 jl_array_ptr_1d_append(m->roots, newroots);
@@ -1670,8 +1626,6 @@ static jl_value_t *jl_deserialize_value_method_instance(jl_serializer_state *s, 
     mi->cache = (jl_code_instance_t*)jl_deserialize_value(s, (jl_value_t**)&mi->cache);
     if (mi->cache)
         jl_gc_wb(mi, mi->cache);
-    // jl_printf(JL_STDOUT, "deser mi: adding backref item at %ld for ", pos);
-    // jl_(mi);
     return (jl_value_t*)mi;
 }
 
@@ -1703,7 +1657,6 @@ static jl_value_t *jl_deserialize_value_code_instance(jl_serializer_state *s, jl
         codeinst->min_world = jl_atomic_load_acquire(&jl_world_counter);
         ptrhash_put(&new_code_instance_validate, codeinst, (void*)(~(uintptr_t)HT_NOTFOUND));   // "HT_FOUND"
     }
-    // jl_printf(JL_STDOUT, "deser codeinst: adding backref item at %ld for ...", backref_list.len-1);
     return (jl_value_t*)codeinst;
 }
 
@@ -1720,8 +1673,6 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
         else
             m_ref = jl_array_ptr_ref(s->loaded_modules_array, read_int32(s->s));
         backref_list.items[pos] = m_ref;
-        // jl_printf(JL_STDOUT, "deser mod: adding backref item at %ld for ", pos);
-        // jl_(m_ref);
         return m_ref;
     }
     jl_module_t *m = jl_new_module(mname);
@@ -1768,8 +1719,6 @@ static jl_value_t *jl_deserialize_value_module(jl_serializer_state *s) JL_GC_DIS
     m->infer = read_int8(s->s);
     m->max_methods = read_int8(s->s);
     m->primary_world = jl_atomic_load_acquire(&jl_world_counter);
-    // jl_printf(JL_STDOUT, "deser mod: adding backref item at %ld for ", pos);
-    // jl_(m);
     return (jl_value_t*)m;
 }
 
@@ -1790,8 +1739,6 @@ static jl_value_t *jl_deserialize_value_singleton(jl_serializer_state *s, jl_val
     }
     jl_datatype_t *dt = (jl_datatype_t*)jl_deserialize_value(s, (jl_value_t**)HT_NOTFOUND); // no loc, since if dt is replaced, then dt->instance would be also
     jl_set_typeof(v, dt);
-    // jl_printf(JL_STDOUT, "deser: adding backref singleton at %ld for ", pos);
-    // jl_(v);
     if (dt->instance == NULL)
         return v;
     return dt->instance;
@@ -1834,15 +1781,12 @@ static void jl_deserialize_struct(jl_serializer_state *s, jl_value_t *v) JL_GC_D
 
 static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag, jl_value_t **loc) JL_GC_DISABLED
 {
-    // jl_printf(JL_STDOUT, "tag = %d, GENERAL = %d, SHORT_GENERAL = %d\n", tag, TAG_GENERAL, TAG_SHORT_GENERAL);
     int32_t sz = (tag == TAG_SHORT_GENERAL ? read_uint8(s->s) : read_int32(s->s));
-    // jl_printf(JL_STDOUT, "sz = %d\n", sz);
     jl_value_t *v = jl_gc_alloc(s->ptls, sz, NULL);
     jl_set_typeof(v, (void*)(intptr_t)0x50);
     uintptr_t pos = backref_list.len;
     arraylist_push(&backref_list, v);
     jl_datatype_t *dt = (jl_datatype_t*)jl_deserialize_value(s, &jl_astaggedvalue(v)->type);
-    // jl_(dt);
     assert(sz != 0 || loc);
     if (dt == jl_typename_type) {
         int internal = read_uint8(s->s);
@@ -1892,8 +1836,6 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
             tn = dt->name;
             backref_list.items[pos] = tn;
         }
-        // jl_printf(JL_STDOUT, "deser any: adding backref item at %ld for ", pos);
-        // jl_(tn);
         return (jl_value_t*)tn;
     }
     jl_set_typeof(v, dt);
@@ -1913,8 +1855,6 @@ static jl_value_t *jl_deserialize_value_any(jl_serializer_state *s, uint8_t tag,
     else {
         jl_deserialize_struct(s, v);
     }
-    // jl_printf(JL_STDOUT, "deser any: adding backref item at %ld for ", pos);
-    // jl_(v);
     return v;
 }
 
@@ -1927,7 +1867,6 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
     uint8_t tag = read_uint8(s->s);
     if (tag > LAST_TAG)
         return deser_tag[tag];
-    // jl_printf(JL_STDOUT, "Tag: %d\n", tag);
     switch (tag) {
     case TAG_NULL: return NULL;
     case 0:
@@ -1940,10 +1879,8 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
         offs >>= 1;
         // assert(offs >= 0); // offs is unsigned so this is always true
         assert(offs < backref_list.len);
-        // jl_printf(JL_STDOUT, "backref offset %ld\n", offs);
         jl_value_t *bp = (jl_value_t*)backref_list.items[offs];
         assert(bp);
-        // jl_(bp);
         if (isflagref && loc != HT_NOTFOUND) {
             if (loc != NULL) {
                 // as in jl_deserialize_value_singleton, the caller won't have a place to
@@ -1970,8 +1907,6 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
             jl_value_t *v = jl_get_global(m, sym);
             assert(jl_is_unionall(v));
             backref_list.items[pos] = v;
-            // jl_printf(JL_STDOUT, "deser UNIONALL: adding backref item at %ld for ", pos);
-            // jl_(v);
             return v;
         }
         v = jl_gc_alloc(s->ptls, sizeof(jl_unionall_t), jl_unionall_type);
@@ -1980,13 +1915,10 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
         jl_gc_wb(v, ((jl_unionall_t*)v)->var);
         ((jl_unionall_t*)v)->body = jl_deserialize_value(s, &((jl_unionall_t*)v)->body);
         jl_gc_wb(v, ((jl_unionall_t*)v)->body);
-        // jl_printf(JL_STDOUT, "deser UNIONALL2: adding backref item at %ld for ", pos);
-        // jl_(v);
         return v;
     case TAG_TVAR:
         v = jl_gc_alloc(s->ptls, sizeof(jl_tvar_t), jl_tvar_type);
         jl_tvar_t *tv = (jl_tvar_t*)v;
-        pos = backref_list.len;
         arraylist_push(&backref_list, tv);
         tv->name = (jl_sym_t*)jl_deserialize_value(s, NULL);
         jl_gc_wb(tv, tv->name);
@@ -1994,8 +1926,6 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
         jl_gc_wb(tv, tv->lb);
         tv->ub = jl_deserialize_value(s, &tv->ub);
         jl_gc_wb(tv, tv->ub);
-        // jl_printf(JL_STDOUT, "deser TVAR: adding backref item at %ld for ", pos);
-        // jl_(tv);
         return (jl_value_t*)tv;
     case TAG_METHOD:
         return jl_deserialize_value_method(s, loc);
@@ -2040,8 +1970,6 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
         uintptr_t pos = backref_list.len;
         arraylist_push(&backref_list, v);
         jl_set_typeof(v, jl_deserialize_value(s, &jl_astaggedvalue(v)->type));
-        // jl_printf(JL_STDOUT, "deser CNULL: adding backref item at %ld for ", backref_list.len-1);
-        // jl_(v);
         return v;
     case TAG_BITYPENAME:
         v = deser_tag[read_uint8(s->s)];
@@ -2051,16 +1979,11 @@ static jl_value_t *jl_deserialize_value(jl_serializer_state *s, jl_value_t **loc
         v = jl_alloc_string(n);
         arraylist_push(&backref_list, v);
         ios_readall(s->s, jl_string_data(v), n);
-        // jl_printf(JL_STDOUT, "deser STRING: adding backref item at %ld for ", backref_list.len-1);
-        // jl_(v);
         return v;
     case TAG_DATATYPE:
         pos = backref_list.len;
         arraylist_push(&backref_list, NULL);
-        v = jl_deserialize_datatype(s, pos, loc);
-        // jl_printf(JL_STDOUT, "deser DATATYPE: adding backref item at %ld for ", pos);
-        // jl_(v);
-        return v;
+        return jl_deserialize_datatype(s, pos, loc);
     default:
         assert(tag == TAG_GENERAL || tag == TAG_SHORT_GENERAL);
         return jl_deserialize_value_any(s, tag, loc);
@@ -2369,7 +2292,6 @@ JL_DLLEXPORT void jl_init_restored_modules(jl_array_t *init_order)
 
 JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
 {
-    jl_(worklist);
     JL_TIMING(SAVE_MODULE);
     ios_t f;
     jl_array_t *mod_array = NULL, *udeps = NULL;
@@ -2442,7 +2364,6 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
                 len += jl_array_len((jl_array_t*)(external_method_instances_by_module.table[j+1]));
         }
     }
-    // jl_printf(JL_STDOUT, "Serializing %ld extra MethodInstances\n", len);
     write_uint64(s.s, len);
     if (len > 0) {
         // Serialize the extra MethodInstances
@@ -2466,7 +2387,6 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
                     size_t l = jl_array_len(jl_external_method_instances);
                     for (i = 0; i < l; i++) {
                         jl_method_instance_t *mi = (jl_method_instance_t*)jl_ptrarrayref(jl_external_method_instances, i);
-                        // jl_(mi);
                         mi->def.method->newrootsindex = INT32_MAX;
                     }
                     jl_array_del_end(jl_external_method_instances, l);
@@ -2601,7 +2521,6 @@ static jl_value_t *recache_type(jl_value_t *p) JL_GC_DISABLED
 static jl_datatype_t *recache_datatype(jl_datatype_t *dt) JL_GC_DISABLED
 {
     jl_datatype_t *t; // the type after unique'ing
-    // jl_(dt);
     assert(verify_type((jl_value_t*)dt));
     t = (jl_datatype_t*)ptrhash_get(&uniquing_table, dt);
     if (t == HT_NOTFOUND)
@@ -2833,12 +2752,10 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
     };
     jl_array_t *restored = (jl_array_t*)jl_deserialize_value(&s, (jl_value_t**)&restored);
     serializer_worklist = restored;
-    // jl_(restored);
     assert(jl_isa((jl_value_t*)restored, jl_array_any_type));
 
     // get list of external generic functions
     jl_value_t *external_methods = jl_deserialize_value(&s, &external_methods);
-    // jl_(external_methods);
 
     // load external MethodInstances of externally-defined Methods
     size_t i, len = read_uint64(f);
@@ -2846,17 +2763,10 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
     jl_external_method_instances = jl_alloc_vec_any(len);
     jl_method_instance_t *mi;
     for (i = 0; i < len; i++) {
-        // mi = jl_arrayref(jl_external_method_instances, i);
         mi = (jl_method_instance_t*) jl_deserialize_value(&s, (jl_value_t**)&mi);
         jl_arrayset(jl_external_method_instances, (jl_value_t*) mi, i);
-        // jl_printf(JL_STDOUT, "mi: ");
         jl_(mi);
-        // jl_printf(JL_STDOUT, "method: ");
-        // jl_(mi->def.method);
-        // jl_printf(JL_STDOUT, "specTypes: ");
-        // jl_(mi->specTypes);
     }
-    // jl_(jl_external_method_instances);
 
     jl_value_t *external_backedges = jl_deserialize_value(&s, &external_backedges);
     jl_value_t *external_edges = jl_deserialize_value(&s, &external_edges);
