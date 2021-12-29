@@ -649,6 +649,7 @@ extern htable_t external_method_instances_by_module JL_GLOBALLY_ROOTED;
 extern JL_DLLEXPORT jl_module_t *jl_precompile_toplevel_module JL_GLOBALLY_ROOTED;
 extern JL_DLLEXPORT jl_array_t  *jl_external_method_instances JL_GLOBALLY_ROOTED;
 extern int currently_serializing;
+extern int currently_deserializing;
 extern htable_t jl_current_modules JL_GLOBALLY_ROOTED;
 int jl_compile_extern_c(void *llvmmod, void *params, void *sysimg, jl_value_t *declrt, jl_value_t *sigt);
 

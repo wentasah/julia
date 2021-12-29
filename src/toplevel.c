@@ -34,8 +34,8 @@ htable_t jl_current_modules;
 jl_mutex_t jl_modules_mutex;
 
 // When generating output, the following are used for keeping track of external MethodInstances
-htable_t external_method_instances_by_module;      // module => arraylist
-JL_DLLEXPORT jl_module_t *jl_precompile_toplevel_module;           // the current toplevel module
+htable_t external_method_instances_by_module;                      // module => list of external MethodInstances
+JL_DLLEXPORT jl_module_t *jl_precompile_toplevel_module;           // the toplevel module currently being defined
 JL_DLLEXPORT jl_array_t  *jl_external_method_instances = NULL;     // the current toplevel module's list of external MethodInstances
 
 JL_DLLEXPORT void jl_add_standard_imports(jl_module_t *m)
