@@ -1534,6 +1534,56 @@ using Core.Compiler: typeof_tfunc
 f_typeof_tfunc(x) = typeof(x)
 @test Base.return_types(f_typeof_tfunc, (Union{<:T, Int} where T<:Complex,)) == Any[Union{Type{Int}, Type{Complex{T}} where T<:Real}]
 
+# arrayref / arrayset / arraysize
+@test Base.return_types((Vector{Int},Int)) do xs, i
+    Core.arrayref(true, xs, i)
+end |> only === Int
+@test Base.return_types((Vector{<:Integer},Int)) do xs, i
+    Core.arrayref(true, xs, i)
+end |> only === Integer
+@test Base.return_types((Vector,Int)) do xs, i
+    Core.arrayref(true, xs, i)
+end |> only === Any
+@test Base.return_types((String,Int)) do xs, i
+    Core.arrayref(true, xs, i)
+end |> only === Union{}
+@test Base.return_types((Vector{Int},Float64)) do xs, i
+    Core.arrayref(true, xs, i)
+end |> only === Union{}
+@test Base.return_types((Int,Vector{Int},Int)) do boundcheck, xs, i
+    Core.arrayref(boundcheck, xs, i)
+end |> only === Union{}
+@test Base.return_types((Vector{Int},Int,Int)) do xs, v, i
+    Core.arrayset(true, xs, v, i)
+end |> only === Vector{Int}
+@test Base.return_types((Vector{<:Integer},Integer,Int)) do xs, v, i
+    Core.arrayset(true, xs, v, i)
+end |> only <: Vector{<:Integer}
+@test Base.return_types((Vector,Any,Int)) do xs, v, i
+    Core.arrayset(true, xs, v, i)
+end |> only === Vector
+@test Base.return_types((String,Char,Int)) do xs, v, i
+    Core.arrayset(true, xs, v, i)
+end |> only === Union{}
+@test Base.return_types((Vector{Int},Int,Float64)) do xs, v, i
+    Core.arrayset(true, xs, v, i)
+end |> only === Union{}
+@test Base.return_types((Int,Vector{Int},Int,Int)) do boundcheck, xs, v, i
+    Core.arrayset(boundcheck, xs, v, i)
+end |> only === Union{}
+@test Base.return_types((Vector{Int},Float64,Int)) do xs, v, i
+    Core.arrayset(true, xs, v, i)
+end |> only === Union{}
+@test Base.return_types((Vector{Number},Nothing,Int)) do xs, v, i
+    Core.arrayset(true, xs, v, i)
+end |> only === Union{}
+@test Base.return_types((Vector,Int)) do xs, dim
+    Core.arraysize(xs, dim)
+end |> only === Int
+@test Base.return_types((Vector,Float64)) do xs, dim
+    Core.arraysize(xs, dim)
+end |> only === Union{}
+
 function f23024(::Type{T}, ::Int) where T
     1 + 1
 end
