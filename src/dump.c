@@ -719,7 +719,26 @@ static void jl_serialize_value_(jl_serializer_state *s, jl_value_t *v, int as_li
                 write_int32(s->s, 0);
             }
         }
-        jl_serialize_value(s, (jl_value_t*)mi->backedges);
+        jl_array_t *backedges = mi->backedges;
+        if (backedges) {
+            // filter backedges to only contain pointers
+            // to items that we will actually store (internal == 2)
+            // FIXME: probably needs adjustment for cached external methods
+            size_t ins, i, l = jl_array_len(backedges);
+            jl_method_instance_t **b_edges = (jl_method_instance_t**)jl_array_data(backedges);
+            for (ins = i = 0; i < l; i++) {
+                jl_method_instance_t *backedge = b_edges[i];
+                if (module_in_worklist(backedge->def.method->module)) {
+                    b_edges[ins++] = backedge;
+                }
+            }
+            if (ins != l)
+                jl_array_del_end(backedges, l - ins);
+            if (ins == 0)
+                backedges = NULL;
+        }
+        jl_serialize_value(s, (jl_value_t*)backedges);
+        // jl_serialize_value(s, (jl_value_t*)mi->backedges);
         jl_serialize_value(s, (jl_value_t*)NULL); //callbacks
         jl_serialize_code_instance(s, mi->cache, 1);
     }
