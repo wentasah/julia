@@ -1622,6 +1622,40 @@ import Core.Compiler.getfield_tfunc
 @test getfield_tfunc(NamedTuple{<:Any, T} where {T <: Tuple{Int, Union{Float64, Missing}}},
                      Const(:x)) == Union{Missing, Float64, Int}
 
+mutable struct ARef{T}
+    @atomic x::T
+end
+@test Base.return_types((ARef{Int},Symbol,)) do a, boundscheck_or_order
+    getfield(a, :x, boundscheck_or_order)
+end |> only === Int
+@test Base.return_types((ARef{Int},Bool,)) do a, boundscheck_or_order
+    getfield(a, :x, boundscheck_or_order)
+end |> only === Int
+@test Base.return_types((ARef{Int},Symbol,Bool)) do a, order, boundscheck
+    getfield(a, :x, order, boundscheck)
+end |> only === Int
+@test Base.return_types((ARef{Int},Vector{Symbol},)) do a, order
+    getfield(a, :x, order...)
+end |> only === Int
+@test Base.return_types((ARef{Int},Symbol,Vector{Symbol},)) do a, order, xs
+    getfield(a, :x, order, xs...)
+end |> only === Int # xs might be empty
+@test Base.return_types((ARef{Int},Int,)) do a, boundscheck_or_order
+    getfield(a, :x, boundscheck_or_order)
+end |> only === Union{}
+@test Base.return_types((ARef{Int},Bool,Symbol)) do a, order, boundscheck
+    getfield(a, :x, order, boundscheck)
+end |> only === Union{}
+@test Base.return_types((ARef{Int},Symbol,Symbol)) do a, order, boundscheck
+    getfield(a, :x, order, boundscheck)
+end |> only === Union{}
+@test Base.return_types((ARef{Int},Bool,Bool)) do a, order, boundscheck
+    getfield(a, :x, order, boundscheck)
+end |> only === Union{}
+@test Base.return_types((ARef{Int},Vector{Any})) do a, xs
+    getfield(a, :x, xs...)
+end |> only === Int
+
 struct Foo_22708
     x::Ptr{Foo_22708}
 end
