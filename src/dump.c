@@ -1603,7 +1603,7 @@ static jl_value_t *jl_deserialize_value_method_instance(jl_serializer_state *s, 
     jl_gc_wb(mi, mi->sparam_vals);
     if (!internal) {
         // non-internal MethodInstances serialize extra Method roots, deserialize them now
-        int i, nroots = read_int32(s->s);
+        int i, oldlen, nroots = read_int32(s->s);
         if (nroots != 0) {
             jl_method_t *m = mi->def.method;
             assert(jl_is_method(m));
@@ -1611,8 +1611,11 @@ static jl_value_t *jl_deserialize_value_method_instance(jl_serializer_state *s, 
                 m->roots = jl_alloc_vec_any(0);
                 jl_gc_wb(m,  m->roots);
             }
+            oldlen = jl_array_len(m->roots);
+            jl_array_grow_end(m->roots, nroots);
+            jl_value_t **rootsdata = (jl_value_t**)jl_array_data(m->roots);
             for (i = 0; i < nroots; i++) {
-                jl_array_ptr_1d_push(m->roots, jl_deserialize_value(s, NULL));
+                rootsdata[i+oldlen] = jl_deserialize_value(s, &(rootsdata[i+oldlen]));
             }
         }
     }
