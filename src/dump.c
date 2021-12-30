@@ -2378,8 +2378,8 @@ JL_DLLEXPORT int jl_save_incremental(const char *fname, jl_array_t *worklist)
                     size_t l = jl_array_len(jl_external_method_instances);
                     for (i = 0; i < l; i++) {
                         jl_serialize_value(&s, jl_ptrarrayref(jl_external_method_instances, i));
-                        jl_printf(JL_STDOUT, "Serializing ");
-                        jl_(jl_ptrarrayref(jl_external_method_instances, i));
+                        // jl_printf(JL_STDOUT, "Serializing ");
+                        // jl_(jl_ptrarrayref(jl_external_method_instances, i));
                     }
                 }
             }
@@ -2660,8 +2660,8 @@ static jl_method_instance_t *jl_recache_method_instance(jl_method_instance_t *mi
     if (ti == jl_bottom_type)
         env = jl_emptysvec; // the intersection may fail now if the type system had made an incorrect subtype env in the past
     jl_method_instance_t *_new = jl_specializations_get_linfo(m, (jl_value_t*)argtypes, env);
-    jl_printf(JL_STDOUT, "recached mi: ");
-    jl_(_new);
+    // jl_printf(JL_STDOUT, "recached mi: ");
+    // jl_(_new);
     return _new;
 }
 
@@ -2768,12 +2768,12 @@ static jl_value_t *_jl_restore_incremental(ios_t *f, jl_array_t *mod_array)
 
     // load MethodInstances of externally-defined Methods
     size_t i, n_external_method_instances = read_uint64(f);
-    jl_printf(JL_STDOUT, "Deserializing %ld external MethodInstances:\n", n_external_method_instances);
+    // jl_printf(JL_STDOUT, "Deserializing %ld external MethodInstances:\n", n_external_method_instances);
     jl_array_t *external_method_instances = jl_alloc_vec_any(n_external_method_instances);  // must be held until jl_recache_other()
     jl_value_t **mis = (jl_value_t**) jl_array_data(external_method_instances);
     for (i = 0; i < n_external_method_instances; i++) {
         mis[i] = jl_deserialize_value(&s, &(mis[i]));
-        jl_(mis[i]);
+        // jl_(mis[i]);
     }
 
     jl_value_t *external_backedges = jl_deserialize_value(&s, &external_backedges);
