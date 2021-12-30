@@ -413,6 +413,13 @@ JL_DLLEXPORT jl_value_t *jl_module_globalref(jl_module_t *m, jl_sym_t *var)
     return globalref;
 }
 
+JL_DLLEXPORT jl_value_t *jl_get_binding_type(jl_module_t *m, jl_sym_t *var) {
+    jl_binding_t *b = jl_get_binding(m, var);
+    if (b == NULL || b->ty == NULL)
+        return (jl_value_t*)jl_any_type;
+    return b->ty;
+}
+
 static int eq_bindings(jl_binding_t *a, jl_binding_t *b)
 {
     if (a==b) return 1;
@@ -807,11 +814,6 @@ JL_DLLEXPORT void jl_checked_assignment(jl_binding_t *b, jl_value_t *rhs) JL_NOT
         }
         jl_safe_printf("WARNING: redefinition of constant %s. This may fail, cause incorrect answers, or produce other errors.\n",
                        jl_symbol_name(b->name));
-        // Get and set type of global binding if not already there
-        if (b->ty == NULL) {
-            jl_value_t *type = jl_typeof(b->value);
-            jl_set_typeof(b->value, type);
-        }
     }
     jl_atomic_store_relaxed(&b->value, rhs);
     jl_gc_wb_binding(b, rhs);

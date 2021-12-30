@@ -4030,9 +4030,14 @@ f(x) = yt(x)
                        (local-in? (cadr e) lam))
                   '(null))
                  (else
-                  (if (or (symbol? (cadr e)) (and (pair? (cadr e)) (eq? (caadr e) 'outerref)))
-                      (error "type declarations on global variables are not yet supported"))
-                  (cl-convert `(call (core typeassert) ,@(cdr e)) fname lam namemap defined toplevel interp opaq))))
+                  (cl-convert
+                    (let ((ref (cadr e)))
+                      (if (nodot-sym-ref? ref)
+                          (let ((mod (if (globalref? ref) (cadr ref) '(thismodule)))
+                                (sym (if (symbol? ref) ref (last ref))))
+                            `(call (core _set_typeof!) ,mod (inert ,sym) ,(caddr e)))
+                          `(call (core typeassert) ,@(cdr e))))
+                    fname lam namemap defined toplevel interp opaq))))
           ;; `with-static-parameters` expressions can be removed now; used only by analyze-vars
           ((with-static-parameters)
            (cl-convert (cadr e) fname lam namemap defined toplevel interp opaq))
