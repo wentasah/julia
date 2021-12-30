@@ -139,9 +139,7 @@ function versioninfo(io::IO=stdout; verbose::Bool=false)
     println(io, "  LLVM: libLLVM-",Base.libllvm_version," (", Sys.JIT, ", ", Sys.CPU_NAME, ")")
 
     function is_nonverbose_env(k::String)
-        return occursin(r"JULIA", k) ||
-               k == "LD_LIBRARY_PATH" ||
-               k == "DYLD_LIBRARY_PATH"
+        return occursin(r"JULIA|^LD_LIBRARY_PATH$|^DYLD_LIBRARY_PATH$", k)
     end
     function is_verbose_env(k::String)
         return occursin(r"PATH|FLAG|^TERM$|HOME", k)
