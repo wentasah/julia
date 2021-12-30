@@ -145,7 +145,7 @@ function versioninfo(io::IO=stdout; verbose::Bool=false)
     end
     function is_verbose_env(k::String)
         return occursin(r"PATH|FLAG|^TERM$|HOME", k)
-    end 
+    end
     env_strs = String[
         String["  $(k) = $(v)" for (k,v) in ENV if is_nonverbose_env(uppercase(k))];
         (verbose ?
