@@ -1805,14 +1805,10 @@ function abstract_eval_statement(interp::AbstractInterpreter, @nospecialize(e), 
 end
 
 function abstract_eval_global(M::Module, s::Symbol)
-    if isdefined(M,s)
-        if isconst(M,s)
-            return Const(getfield(M,s))
-        else
-            return ccall(:jl_get_binding_type, Any, (Any, Any), M, s)
-        end
+    if isdefined(M,s) && isconst(M,s)
+        return Const(getfield(M,s))
     end
-    return Any
+    return ccall(:jl_get_binding_type, Any, (Any, Any), M, s)
 end
 
 function abstract_eval_ssavalue(s::SSAValue, src::CodeInfo)

@@ -413,13 +413,6 @@ JL_DLLEXPORT jl_value_t *jl_module_globalref(jl_module_t *m, jl_sym_t *var)
     return globalref;
 }
 
-JL_DLLEXPORT jl_value_t *jl_get_binding_type(jl_module_t *m, jl_sym_t *var) {
-    jl_binding_t *b = jl_get_binding(m, var);
-    if (b == NULL || b->ty == NULL)
-        return (jl_value_t*)jl_any_type;
-    return b->ty;
-}
-
 static int eq_bindings(jl_binding_t *a, jl_binding_t *b)
 {
     if (a==b) return 1;
@@ -670,6 +663,10 @@ JL_DLLEXPORT void jl_set_global(jl_module_t *m JL_ROOTING_ARGUMENT, jl_sym_t *va
 JL_DLLEXPORT void jl_set_const(jl_module_t *m JL_ROOTING_ARGUMENT, jl_sym_t *var, jl_value_t *val JL_ROOTED_ARGUMENT)
 {
     jl_binding_t *bp = jl_get_binding_wr(m, var, 1);
+    if (bp->ty) {
+        jl_errorf("cannot declare %s constant; it was already declared as a typed global",
+                  jl_symbol_name(bp->name));
+    }
     if (bp->value == NULL) {
         uint8_t constp = 0;
         // if (jl_atomic_cmpswap(&bp->constp, &constp, 1)) {
@@ -689,6 +686,13 @@ JL_DLLEXPORT int jl_is_const(jl_module_t *m, jl_sym_t *var)
 {
     jl_binding_t *b = jl_get_binding(m, var);
     return b && b->constp;
+}
+
+JL_DLLEXPORT jl_value_t *jl_get_binding_type(jl_module_t *m, jl_sym_t *var) {
+    jl_binding_t *b = jl_get_binding(m, var);
+    if (b == NULL || b->ty == NULL)
+        return (jl_value_t*)jl_any_type;
+    return b->ty;
 }
 
 // set the deprecated flag for a binding:
@@ -798,6 +802,10 @@ void jl_binding_deprecation_warning(jl_module_t *m, jl_binding_t *b)
 
 JL_DLLEXPORT void jl_checked_assignment(jl_binding_t *b, jl_value_t *rhs) JL_NOTSAFEPOINT
 {
+    if (b->ty && !jl_isa(rhs, b->ty)) {
+        jl_errorf("Cannot assign a value of an incompatible type to the typed global %s.",
+                  jl_symbol_name(b->name));
+    }
     if (b->constp) {
         jl_value_t *old = NULL;
         if (jl_atomic_cmpswap(&b->value, &old, rhs)) {
@@ -823,6 +831,10 @@ JL_DLLEXPORT void jl_declare_constant(jl_binding_t *b)
 {
     if (b->value != NULL && !b->constp) {
         jl_errorf("cannot declare %s constant; it already has a value",
+                  jl_symbol_name(b->name));
+    }
+    if (b->ty) {
+        jl_errorf("cannot declare %s constant; it was already declared as a typed global",
                   jl_symbol_name(b->name));
     }
     b->constp = 1;

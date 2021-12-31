@@ -1660,9 +1660,24 @@ JL_CALLABLE(jl_f__set_typeof)
     JL_NARGS(_set_typeof!, 3, 3);
     JL_TYPECHK(_set_typeof!, module, args[0]);
     JL_TYPECHK(_set_typeof!, symbol, args[1]);
-    JL_TYPECHK(_set_typeof!, type, args[2]);
+    jl_value_t *ty = args[2];
+    JL_TYPECHK(_set_typeof!, type, ty);
     jl_binding_t *b = jl_get_binding_wr((jl_module_t*)args[0], (jl_sym_t*)args[1], 1);
-    b->ty = args[2];
+    if (b->constp && ty != jl_any_type) {
+        jl_errorf("cannot set type for constant %s", jl_symbol_name(b->name));
+    }
+    if (b->ty && ty != b->ty) {
+        if (jl_subtype(ty, b->ty)) {
+            jl_safe_printf("WARNING: redefinition of type of %s. This may fail, cause incorrect answers, or produce other errors.\n",
+                       jl_symbol_name(b->name));
+        }
+        else {
+            jl_errorf("invalid redefinition of type of %s", jl_symbol_name(b->name));
+        }
+    }
+    if (ty != jl_any_type) {
+        b->ty = ty;
+    }
     return jl_nothing;
 }
 
